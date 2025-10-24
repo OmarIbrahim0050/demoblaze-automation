@@ -4,57 +4,47 @@ import { LoginPage } from "../pages/loginPage";
 import { OrderPage } from "../pages/orderPage";
 import { LogoutPage } from "../pages/logoutPage";
 
-test.describe("E2E Flow: Register → Login → Buy → Logout", () => {
-  let username: string;
+test("Complete E2E Flow: Register → Login → Buy → Logout", async ({ page }) => {
+  const registerPage = new RegisterPage(page);
+  const loginPage = new LoginPage(page);
+  const orderPage = new OrderPage(page);
+  const logoutPage = new LogoutPage(page);
   const password = "123456";
 
-  test.beforeAll(async ({ browser }) => {
-    const page = await browser.newPage();
-    const registerPage = new RegisterPage(page);
+  // 1. Register
+  await registerPage.open();
+  await registerPage.openSignUpModal();
+  const username = await registerPage.register(undefined, password);
+  const registerAlert = await registerPage.isRegistrationAlertVisible();
+  expect(registerAlert).toContain("Sign up successful");
 
-    await registerPage.open();
-    await registerPage.openSignUpModal();
+  // 2. Login
+  await loginPage.open();
+  await loginPage.openLoginModal();
+  await loginPage.login(username, password);
+  expect(await loginPage.isLoggedIn()).toContain(username);
 
-    username = await registerPage.register(undefined, password);
-    const alertMessage = await registerPage.isRegistrationAlertVisible();
-    expect(alertMessage).toContain("Sign up successful");
+  // 3. Select product and add to cart
+  await page.goto("https://www.demoblaze.com/");
+  await orderPage.selectProduct("Apple monitor 24", "Monitors");
+  const cartAlert = await orderPage.addToCart();
+  expect(cartAlert).toContain("Product added");
 
-    await page.close();
-  });
+  // 4. Place order
+  const orderConfirmation = await orderPage.placeOrder(
+    username,
+    "Egypt",
+    "Cairo",
+    "1234567890123456",
+    "10",
+    "2025"
+  );
+  expect(orderConfirmation).toContain("Thank you for your purchase!");
 
-  test("Complete E2E flow", async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    const orderPage = new OrderPage(page);
-    const logoutPage = new LogoutPage(page);
+  // 5. Logout
+  expect(await logoutPage.isLogoutVisible()).toBeTruthy();
+  await logoutPage.clickLogout();
+  expect(await logoutPage.isLoginVisible()).toBeTruthy();
 
-    // Login
-    await loginPage.open();
-    await loginPage.openLoginModal();
-    await loginPage.login(username, password);
-    expect(await loginPage.isLoggedIn()).toContain(username);
-
-    // Select product under Monitors category and add to cart
-    await page.goto("https://www.demoblaze.com/");
-    await orderPage.selectProduct("Apple monitor 24", "Monitors");
-    const alertMsg = await orderPage.addToCart();
-    expect(alertMsg).toContain("Product added");
-
-    // Place order
-    const confirmation = await orderPage.placeOrder(
-      username,
-      "Egypt",
-      "Cairo",
-      "1234567890123456",
-      "10",
-      "2025"
-    );
-    expect(confirmation).toContain("Thank you for your purchase!");
-
-    // Logout
-    expect(await logoutPage.isLogoutVisible()).toBeTruthy();
-    await logoutPage.clickLogout();
-    expect(await logoutPage.isLoginVisible()).toBeTruthy();
-
-    console.log(`E2E flow completed successfully for user: ${username}`);
-  });
+ console.log(`E2E flow completed successfully for user: ${username}`);
 });
